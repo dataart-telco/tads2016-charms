@@ -1,0 +1,4 @@
+includes: ['layer:docker', 'interface:mysql', 'interface:http']
+options:
+  docker:
+    skip-install: false

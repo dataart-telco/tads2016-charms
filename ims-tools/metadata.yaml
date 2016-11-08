@@ -1,0 +1,16 @@
+name: ims-tools
+summary: ims-tools adapter server
+maintainers: 
+  - gdubina <gdubina@dataart.com>
+description: |
+  ims-tools adapter server
+tags:
+  - misc
+  - sip
+  - voip
+subordinate: false
+requires:
+  homestead:
+    interface: homestead-prov-interface
+  restcomm:
+    interface: http

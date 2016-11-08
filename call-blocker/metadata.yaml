@@ -1,0 +1,14 @@
+name: call-blocker
+summary: call-blocker management server
+maintainers: 
+  - gdubina <gdubina@dataart.com>
+description: |
+  call-blocker management server
+tags:
+  - misc
+  - sip
+  - voip
+subordinate: false
+requires:
+  api:
+    interface: http

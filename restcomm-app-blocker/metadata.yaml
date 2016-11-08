@@ -1,0 +1,15 @@
+name: restcomm-app-blocker
+summary: Restcomm-Connect call blocker app
+maintainers: 
+  - gdubina <gdubina@dataart.com>
+description: |
+  Restcomm-Connect call blocker app
+tags:
+  - misc
+  - sip
+  - voip
+subordinate: true
+requires:
+  container:
+    interface: juju-info
+    scope: container

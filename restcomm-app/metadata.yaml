@@ -1,0 +1,15 @@
+name: restcomm-app
+summary: Restcomm-Connect rvd app
+maintainers: 
+  - gdubina <gdubina@dataart.com>
+description: |
+  Restcomm-Connect rvd app
+tags:
+  - misc
+  - sip
+  - voip
+subordinate: true
+requires:
+  container:
+    interface: juju-info
+    scope: container

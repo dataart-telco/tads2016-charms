@@ -1,0 +1,21 @@
+options:
+  user:
+    type: string 
+    description: user name
+    default: "ACae6e420f425248d6a26948c17a9e2acf"
+  password:
+    type: string 
+    description: link to archive with rvd project
+    default: ""
+  client-appendix:
+    type: string
+    description: client number appendix
+    default: client
+  restcomm-app:
+    type: string
+    description: restcomm app name
+    default: restcomm-app-blocker
+  api-key:
+    type: string
+    description: app api key
+    default: B5Y1z7XiTiwz5n16rsZ77oJ2fHqalZMQ

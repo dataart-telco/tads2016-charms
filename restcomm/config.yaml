@@ -1,0 +1,21 @@
+options:
+    voicerss_key:
+        type: string
+        description: Voice RSS TTS Engine Key. http://www.voicerss.org/
+        default: ""
+    init_password:
+        type: string
+        description: Init admin password. this arg will affect install process only
+        default: ""
+    sms_outbound_proxy:
+        type: string
+        description: sms outbound proxy host
+        default: ""
+    outbound_proxy:
+        type: string
+        description: outbound proxy host
+        default: ""
+    config_url:
+        type: string
+        description: config url for restcomm docker
+        default: ""

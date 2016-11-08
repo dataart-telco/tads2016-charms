@@ -1,0 +1,21 @@
+name: restcomm
+summary: Restcomm-Connect
+maintainers: 
+  - gdubina <gdubina@dataart.com>
+description: |
+  Restcomm-Connect installation based on docker
+tags:
+  - misc
+  - sip
+  - voip
+subordinate: false
+provides:
+  api:
+    interface: http
+requires:
+  outbound-proxy:
+    interface: 3GPP-Mw
+  mysql:
+    interface: mysql
+  loadbalancer:
+    interface: sip-balancer

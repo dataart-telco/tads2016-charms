@@ -1,0 +1,9 @@
+options:
+  real:
+    type: string 
+    description: ims real
+    default: "clearwater.local"
+  api-key:
+    type: string
+    description: app api key
+    default: B5Y1z7XiTiwz5n16rsZ77oJ2fHqalZMQ
