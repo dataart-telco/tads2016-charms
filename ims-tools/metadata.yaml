@@ -9,6 +9,9 @@ tags:
   - sip
   - voip
 subordinate: false
+provides:
+  api:
+    interface: http
 requires:
   homestead:
     interface: homestead-prov-interface

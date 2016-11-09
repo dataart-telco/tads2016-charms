@@ -7,40 +7,51 @@ from charmhelpers.core import unitdata
 
 from charms import reactive
 from charms.reactive import hook
+from charms.reactive import helpers
 from charms.reactive import when, when_not, when_any
 
 db = unitdata.kv()
 config = hookenv.config()
 
+app_name = 'restcomm'
+docker_image = 'restcomm/restcomm:7.8.0'
+
 @when('docker.available')
-@when_not('restcomm.available')
+@when_not('app.available')
 def install_restcomm():
     hookenv.status_set('maintenance', 'Pulling Restcomm-Connect')
-    check_call(['docker', 'pull', 'restcomm/restcomm:stable'])
+    check_call(['docker', 'pull', docker_image])
 
     # open ports: HTTP, SIP, RTP
     hookenv.open_port(8080, 'TCP')
     hookenv.open_port(5080, 'UDP')
     hookenv.open_port('65000-65535', 'UDP')
 
-    reactive.set_state('restcomm.available')
+    reactive.set_state('app.available')
+
+@hook('stop')
+def destroy_app():
+    reactive.set_state('app.destroyed')
+    remove_container()
 
 def remove_container():
-    run_command = [
-        'docker',
-        'rm', '-f',
-        'restcomm'
-    ]
-    call(run_command)
-    reactive.remove_state('restcomm.started')
+    try:
+        check_call(['docker', 'kill', app_name])
+    except:
+        pass
+    try:
+        check_call(['docker', 'rm', '-f', app_name])
+    except:
+        pass
+    reactive.remove_state('app.started')
 
-@when('restcomm.changed')
+@when('app.changed')
 def restart_restcomm():
     remove_container()
     start_restcomm()
 
-@when('restcomm.available')
-@when_not('restcomm.started')
+@when('app.available')
+@when_not('app.started', 'app.destroyed')
 def start_restcomm():
     hookenv.status_set('maintenance', 'Start Restcomm-Connect')
 
@@ -79,7 +90,7 @@ def start_restcomm():
         'docker',
         'run',
         '--restart', 'always',
-        '--name', 'restcomm',
+        '--name', app_name,
         '--net', 'host',
         '-e', 'ENVCONFURL={}'.format(configUrl),
         '-e', 'MYSQL_HOST={}'.format(mysqlHost),
@@ -103,32 +114,43 @@ def start_restcomm():
         '-v', '{}:{}'.format('/var/log/restcomm/', '/var/log/restcomm/'),
         '-v', '{}:{}'.format('/opt/restcomm-rvd-workspace/', '/opt/restcomm-rvd-workspace/'),
         '-d',
-        'restcomm/restcomm:stable'
+        docker_image
     ]
     check_call(run_command)
 
     hookenv.status_set('active', 'Restcomm-Connect is started')
-    reactive.set_state('restcomm.started')
+    reactive.remove_state('app.changed')
+    reactive.set_state('app.started')
 
 @hook('config-changed')
 def config_changed():
-    reactive.set_state('restcomm.changed')
+    reactive.set_state('app.changed')
+
+def save_and_notify(relation, data):
+    if helpers.is_state('app.started') and not helpers.data_changed(relation, data):
+        return
+    db.set(relation, data)
+    reactive.set_state('app.changed')
+
+@when('api.available')
+def configure_api(api):
+    api.configure(port=8080)
+
+@when('sip.available')
+def configure_api(api):
+    api.configure(port=5080)
 
 @when('mysql.available')
 def mysql_changed(mysql):
     if not mysql:
         return
-    db.set("mysql", {
+    save_and_notify("mysql", 
+        {
         'host': mysql.host(), 
         'database': mysql.database(), 
         'user': mysql.user(), 
         'password': mysql.password()
     })
-    reactive.set_state('restcomm.changed')
-
-@when('api.available')
-def configure_api(api):
-    api.configure(port=8080)
 
 @hook('loadbalancer-relation-changed')
 def loadbalancer_changed():
@@ -136,13 +158,12 @@ def loadbalancer_changed():
 #    lbnode = hookenv.relation_get()
 #    if lbnode:
 #        db.set("loadbalancer", {'public': lbnode['host'], 'private': lbnode['private-address']})
-#        reactive.set_state('restcomm.changed')
+#        reactive.set_state('app.changed')
 
 @hook('outbound-proxy-relation-changed')
 def outbound_proxy_changed(proxy):
     if not proxy:
         return
     for service in proxy.services():
-        db.set("outbound-proxy", {'host': service['host'], 'port': service['port']})
+        save_and_notify("outbound-proxy", {'host': service['host'], 'port': service['port']})
         break
-    reactive.set_state('app.changed')

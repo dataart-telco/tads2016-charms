@@ -10,7 +10,7 @@ tags:
   - voip
 subordinate: false
 requires:
-  api:
+  restcomm:
     interface: http
   registration:
     interface: http

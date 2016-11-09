@@ -12,6 +12,8 @@ subordinate: false
 provides:
   api:
     interface: http
+  sip:
+    interface: http
 requires:
   outbound-proxy:
     interface: 3GPP-Mw

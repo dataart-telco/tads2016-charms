@@ -7,29 +7,40 @@ from charmhelpers.core import unitdata
 
 from charms import reactive
 from charms.reactive import hook
+from charms.reactive import helpers
 from charms.reactive import when, when_not, when_any
 
 db = unitdata.kv()
 config = hookenv.config()
 
+app_name = 'call-blocker'
+docker_image = 'tads2015da/call-blocker:latest'
+
 @when('docker.available')
 @when_not('app.available')
 def install_app():
     hookenv.status_set('maintenance', 'Pulling application')
-    check_call(['docker', 'pull', 'tads2015da/call-blocker:latest'])
+    check_call(['docker', 'pull', docker_image])
 
     # open ports: HTTP
     hookenv.open_port(7070, 'TCP')
 
     reactive.set_state('app.available')
 
+@hook('stop')
+def destroy_app():
+    reactive.set_state('app.destroyed')
+    remove_container()
+
 def remove_container():
-    run_command = [
-        'docker',
-        'rm', '-f',
-        'call-blocker'
-    ]
-    call(run_command)
+    try:
+        check_call(['docker', 'kill', app_name])
+    except:
+        pass
+    try:
+        check_call(['docker', 'rm', '-f', app_name])
+    except:
+        pass
     reactive.remove_state('app.started')
 
 @when('app.changed')
@@ -38,7 +49,7 @@ def restart_app():
     start_app()
 
 @when('app.available')
-@when_not('app.started')
+@when_not('app.started', 'app.destroyed')
 def start_app():
     hookenv.status_set('maintenance', 'Start call-blocker')
 
@@ -54,15 +65,16 @@ def start_app():
     clientAppendix = config.get('client-appendix')
     apiKey = config.get('api-key')
 
-    api = db.get('api', record=True)
-    if not api:
-        hookenv.status_set('blocked', 'Wait for api server connection')
+    restcomm = db.get('restcomm', record=True)
+    if not restcomm:
+        hookenv.status_set('blocked', 'Wait for restcomm server connection')
         return
     else:
-        host = api['host']
-        port = api['port']
+        host = restcomm['host']
+        port = restcomm['port']
 
     registration = db.get('registration', record=True)
+    hookenv.log("!!! registration data is {}".format(registration))
     if registration:
         registration_host = registration['host']
         registration_port = registration['port']
@@ -74,27 +86,36 @@ def start_app():
         'docker',
         'run',
         '--restart', 'always',
-        '--name', 'call-blocker',
+        '--name', app_name,
         '-e', 'RESTCOMM_SERVER={}:{}'.format(host, port),
         '-e', 'RESTCOMM_LOGIN={}'.format(user),
         '-e', 'RESTCOMM_PASSWORD={}'.format(password),
-        '-e', 'CLIENT_APP={}'.format(restcommApp),
-        '-e', 'CLIENT_POSTFIX={}'.format(clientAppendix),
+        '-e', 'APPLICATION_NAME={}'.format(restcommApp),
+        '-e', 'CLIENT_APPENDIX={}'.format(clientAppendix),
         '-e', 'API_KEY={}'.format(apiKey),
-        '-e', 'REGISTRATION_ENDPOINT={}:{}'.format(registration_host, registration_port),
+        '-e', 'REGISTRATION_API_ENDPOINT={}:{}'.format(registration_host, registration_port),
         '-e', 'REGISTRATION_API_KEY={}'.format(config.get('registration-key')),
         '-v', '{}:{}'.format('/opt/scenario1-call-blocker/data/', '/opt/scenario1/data/'),
         '-p', '7070:8080',
         '-d',
-        'tads2015da/call-blocker:latest'
+        docker_image
     ]
     check_call(run_command)
 
     hookenv.status_set('active', 'App is started')
+    reactive.remove_state('app.changed')
     reactive.set_state('app.started')
 
 @hook('config-changed')
 def config_changed():
+    reactive.set_state('app.changed')
+
+def save_and_notify(relation, data):
+    if helpers.is_state('app.started') and not helpers.data_changed(relation, data):
+        hookenv.log("!!! data IS NOT changed for {} {}".format(relation, data))
+        return
+    db.set(relation, data)
+    hookenv.log("!!! data saved for {} {}".format(relation, data))
     reactive.set_state('app.changed')
 
 def get_first_http_service(http):
@@ -107,18 +128,16 @@ def get_first_http_service(http):
         return None
     return hosts[0]
 
-@when('api.available')
-def configure_api(api):
+def api_relation_changed(relation, api):
     api = get_first_http_service(api)
     if not api:
         return
-    db.set("api", {'host': api['hostname'], 'port': api['port']})
-    reactive.set_state('app.changed')
+    save_and_notify(relation, {'host': api['hostname'], 'port': api['port']})
+
+@when('restcomm.available')
+def configure_api(api):
+    api_relation_changed('restcomm', api)
 
 @when('registration.available')
 def configure_api(api):
-    api = get_first_http_service(api)
-    if not api:
-        return
-    db.set("registration", {'host': api['hostname'], 'port': api['port']})
-    reactive.set_state('app.changed')
+    api_relation_changed('registration', api)

@@ -1,5 +1,5 @@
 options:
-  real:
+  realm:
     type: string 
     description: ims real
     default: "clearwater.local"

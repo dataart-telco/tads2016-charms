@@ -10,7 +10,7 @@ options:
   client-appendix:
     type: string
     description: client number appendix
-    default: client
+    default: ""
   restcomm-app:
     type: string
     description: restcomm app name
