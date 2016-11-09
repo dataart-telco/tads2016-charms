@@ -44,6 +44,10 @@ def start_app():
 
     host = hookenv.unit_private_ip()
     port = 8080
+
+    registration_host = host
+    registration_port = 8080
+
     user = config.get('user')
     password = config.get('password')
     restcommApp = config.get('restcomm-app')
@@ -58,6 +62,14 @@ def start_app():
         host = api['host']
         port = api['port']
 
+    registration = db.get('registration', record=True)
+    if registration:
+        registration_host = registration['host']
+        registration_port = registration['port']
+    else:
+        registration_host = host
+        registration_port = port
+
     run_command = [
         'docker',
         'run',
@@ -69,6 +81,8 @@ def start_app():
         '-e', 'CLIENT_APP={}'.format(restcommApp),
         '-e', 'CLIENT_POSTFIX={}'.format(clientAppendix),
         '-e', 'API_KEY={}'.format(apiKey),
+        '-e', 'REGISTRATION_ENDPOINT={}:{}'.format(registration_host, registration_port),
+        '-e', 'REGISTRATION_API_KEY={}'.format(config.get('registration-key')),
         '-v', '{}:{}'.format('/opt/scenario1-call-blocker/data/', '/opt/scenario1/data/'),
         '-p', '7070:8080',
         '-d',
@@ -99,4 +113,12 @@ def configure_api(api):
     if not api:
         return
     db.set("api", {'host': api['hostname'], 'port': api['port']})
+    reactive.set_state('app.changed')
+
+@when('registration.available')
+def configure_api(api):
+    api = get_first_http_service(api)
+    if not api:
+        return
+    db.set("registration", {'host': api['hostname'], 'port': api['port']})
     reactive.set_state('app.changed')

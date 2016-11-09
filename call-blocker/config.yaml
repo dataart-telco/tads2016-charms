@@ -19,3 +19,7 @@ options:
     type: string
     description: app api key
     default: B5Y1z7XiTiwz5n16rsZ77oJ2fHqalZMQ
+  registration-key:
+    type: string
+    description: registration api key
+    default: B5Y1z7XiTiwz5n16rsZ77oJ2fHqalZMQ

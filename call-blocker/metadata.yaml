@@ -12,3 +12,5 @@ subordinate: false
 requires:
   api:
     interface: http
+  registration:
+    interface: http
