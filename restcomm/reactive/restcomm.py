@@ -4,6 +4,7 @@ from subprocess import call, check_call
 
 from charmhelpers.core import hookenv
 from charmhelpers.core import unitdata
+from charmhelpers.core import host
 
 from charms import reactive
 from charms.reactive import hook
@@ -14,7 +15,7 @@ db = unitdata.kv()
 config = hookenv.config()
 
 app_name = 'restcomm'
-docker_image = 'restcomm/restcomm:7.8.0'
+docker_image = 'restcomm/restcomm:7.9.0'
 
 @when('docker.available')
 @when_not('app.available')
@@ -64,7 +65,7 @@ def start_restcomm():
     if not proxy:
         outboundProxy = config.get('outbound_proxy')
     else:
-        outboundProxy = "{}:{}".format(proxy['host'], proxy['port'])
+        outboundProxy = "sip:{}:{}".format(proxy['host'], proxy['port'])
 
     mysqlHost = ''
     mysqlSchema = ''
@@ -86,13 +87,15 @@ def start_restcomm():
         lbPublicIp = lb['public']
         lbPrivateIp = lb['private']
 
+#   '-e', 'ENVCONFURL={}'.format(configUrl),
     run_command = [
         'docker',
         'run',
         '--restart', 'always',
         '--name', app_name,
         '--net', 'host',
-        '-e', 'ENVCONFURL={}'.format(configUrl),
+        '-e', 'STATIC_ADDRESS={}'.format(hookenv.unit_private_ip()),
+        '-e', 'MEDIASERVER_EXTERNAL_ADDRESS={}'.format(hookenv.unit_public_ip()),
         '-e', 'MYSQL_HOST={}'.format(mysqlHost),
         '-e', 'MYSQL_USER={}'.format(mysqlUser),
         '-e', 'MYSQL_PASSWORD={}'.format(mysqlPswd),
@@ -104,7 +107,7 @@ def start_restcomm():
         '-e', 'LB_PUBLIC_IP={}'.format(lbPublicIp),
         '-e', 'LB_INTERNAL_IP={}'.format(lbPrivateIp),
         '-e', 'MEDIASERVER_LOGS_LOCATION={}'.format('media_server'),
-        '-e', 'EDIASERVER_LOWEST_PORT={}'.format('65000'),
+        '-e', 'MEDIASERVER_LOWEST_PORT={}'.format('65000'),
         '-e', 'MEDIASERVER_HIGHEST_PORT={}'.format('65535'),
         '-e', 'LOG_LEVEL={}'.format('DEBUG'),
         '-e', 'RESTCOMM_LOGS={}'.format('/var/log/restcomm'),
@@ -151,6 +154,29 @@ def mysql_changed(mysql):
         'user': mysql.user(), 
         'password': mysql.password()
     })
+
+@when('dns.connected')
+@when_not('dns.available')
+def dns_joined(dns):
+    dns.configure(config.get('zone'), hookenv.service_name())
+
+@when('dns.available')
+def dns_changed(dns):
+    if not dns:
+        return
+    for service in dns.services():
+        record = "AUTO GENERATED\n"
+        record += "nameserver\t{}\n".format(service['ip'])
+        host.write_file("/etc/resolvconf/resolv.conf.d/head", bytes(record, 'UTF-8'))
+        check_call(["resolvconf", "-u"])
+        break
+
+@when('dns.removing')
+def dns_disconnected(dns):
+    reactive.remove_state('dns.removing')
+    dns.configure(config.get('zone'), hookenv.service_name())
+    record = "AUTO GENERATED\n"
+    host.write_file("/etc/resolvconf/resolv.conf.d/head", bytes(record, 'UTF-8'))
 
 @hook('loadbalancer-relation-changed')
 def loadbalancer_changed():

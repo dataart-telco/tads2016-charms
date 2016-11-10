@@ -15,6 +15,8 @@ provides:
   sip:
     interface: http
 requires:
+  dns:
+    interface: dns
   outbound-proxy:
     interface: 3GPP-Mw
   mysql:
