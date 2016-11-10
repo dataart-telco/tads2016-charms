@@ -65,7 +65,8 @@ def start_restcomm():
     if not proxy:
         outboundProxy = config.get('outbound_proxy')
     else:
-        outboundProxy = "sip:{}:{}".format(proxy['host'], proxy['port'])
+        outboundProxy = "{}:{}".format(config.get('zone'), proxy['port'])
+        check_call(["echo", "'{} {}'".format(proxy['host'], config.get('zone')), " >> ", "/etc/hosts"])
 
     mysqlHost = ''
     mysqlSchema = ''
