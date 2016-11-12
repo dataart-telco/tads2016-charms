@@ -1,9 +1,9 @@
-name: call-blocker
-summary: call-blocker management server
+name: call-assistance
+summary: call-assistance management server
 maintainers: 
   - gdubina <gdubina@dataart.com>
 description: |
-  call-blocker management server
+  call-assistance management server
 tags:
   - misc
   - sip

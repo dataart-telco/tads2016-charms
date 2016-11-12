@@ -13,8 +13,8 @@ from charms.reactive import when, when_not, when_any
 db = unitdata.kv()
 config = hookenv.config()
 
-app_name = 'call-blocker'
-docker_image = 'tads2015da/call-blocker:latest'
+app_name = 'call-assistance'
+docker_image = 'tads2015da/call-assistance:latest'
 
 @when('docker.available')
 @when_not('app.available')

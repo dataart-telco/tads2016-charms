@@ -1,9 +1,9 @@
-name: restcomm-app-blocker
-summary: Restcomm-Connect call blocker app
+name: restcomm-call-assistance
+summary: Restcomm-Connect call assistance app
 maintainers: 
   - gdubina <gdubina@dataart.com>
 description: |
-  Restcomm-Connect call blocker app
+  Restcomm-Connect call assistance app
 tags:
   - misc
   - sip

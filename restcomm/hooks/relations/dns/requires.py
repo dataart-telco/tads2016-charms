@@ -7,13 +7,8 @@ from charms.reactive import scopes
 class DnsRequires(RelationBase):
     scope = scopes.UNIT
 
-    @hook('{requires:dns}-relation-joined')
-    def joined(self):
-        conv = self.conversation()
-        conv.set_state('{relation_name}.connected')
-
     @hook('{requires:dns}-relation-changed')
-    def changed(self):
+    def joined(self):
         conv = self.conversation()
         conv.set_state('{relation_name}.available')
 
@@ -21,13 +16,11 @@ class DnsRequires(RelationBase):
     def departed(self):
         conv = self.conversation()
         conv.remove_state('{relation_name}.available')
-        conv.remove_state('{relation_name}.connected')
         conv.set_state('{relation_name}.removing')
 
     @hook('{requires:dns}-relation-broken')
     def broken(self):
         conv = self.conversation()
-        conv.remove_state('{relation_name}.connected')
         conv.remove_state('{relation_name}.available')
         conv.remove_state('{relation_name}.removing')
 

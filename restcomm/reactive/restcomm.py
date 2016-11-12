@@ -15,7 +15,8 @@ db = unitdata.kv()
 config = hookenv.config()
 
 app_name = 'restcomm'
-docker_image = 'restcomm/restcomm:7.9.0'
+#docker_image = 'restcomm/restcomm:7.9.0'
+docker_image = 'tads2015da/restcomm:media'
 
 @when('docker.available')
 @when_not('app.available')
@@ -26,6 +27,7 @@ def install_restcomm():
     # open ports: HTTP, SIP, RTP
     hookenv.open_port(8080, 'TCP')
     hookenv.open_port(5080, 'UDP')
+    hookenv.open_port(5080, 'TCP')
     hookenv.open_port('65000-65535', 'UDP')
 
     reactive.set_state('app.available')
@@ -51,6 +53,15 @@ def restart_restcomm():
     remove_container()
     start_restcomm()
 
+def add_host_route(ip, host):
+    with open("/tmp/hosts", 'w') as tmp:
+        tmp.write("{} {}\n".format(ip, host))
+        with open("/etc/hosts") as f:
+            for line in f:
+                if not host in line:
+                    tmp.write(line)
+    shutil.move("/tmp/hosts", "/etc/hosts")
+
 @when('app.available')
 @when_not('app.started', 'app.destroyed')
 def start_restcomm():
@@ -66,7 +77,10 @@ def start_restcomm():
         outboundProxy = config.get('outbound_proxy')
     else:
         outboundProxy = "{}:{}".format(config.get('zone'), proxy['port'])
-        check_call(["echo", "'{} {}'".format(proxy['host'], config.get('zone')), " >> ", "/etc/hosts"])
+
+        add_host_route(proxy['host'], config.get('zone'))
+        add_host_route(proxy['host'], "sprout.{}".format(config.get('zone')))
+        add_host_route(proxy['host'], "scscf.sprout.{}".format(config.get('zone')))
 
     mysqlHost = ''
     mysqlSchema = ''
@@ -89,14 +103,15 @@ def start_restcomm():
         lbPrivateIp = lb['private']
 
 #   '-e', 'ENVCONFURL={}'.format(configUrl),
+#'-e', 'MEDIASERVER_EXTERNAL_ADDRESS={}'.format(hookenv.unit_public_ip()),
+
     run_command = [
         'docker',
         'run',
         '--restart', 'always',
         '--name', app_name,
         '--net', 'host',
-        '-e', 'STATIC_ADDRESS={}'.format(hookenv.unit_private_ip()),
-        '-e', 'MEDIASERVER_EXTERNAL_ADDRESS={}'.format(hookenv.unit_public_ip()),
+        '-e', 'STATIC_ADDRESS={}'.format(hookenv.unit_public_ip()),
         '-e', 'MYSQL_HOST={}'.format(mysqlHost),
         '-e', 'MYSQL_USER={}'.format(mysqlUser),
         '-e', 'MYSQL_PASSWORD={}'.format(mysqlPswd),
@@ -156,28 +171,35 @@ def mysql_changed(mysql):
         'password': mysql.password()
     })
 
-@when('dns.connected')
-@when_not('dns.available')
-def dns_joined(dns):
-    dns.configure(config.get('zone'), hookenv.service_name())
+#@when('dns.connected')
+#@when_not('dns.available')
+#def dns_joined(dns):
+#    hookenv.log("dns_joined: dns state = {} {}".format(helpers.is_state('dns.connected'),  helpers.is_state('dns.available')))
+#    dns.configure(config.get('zone'), hookenv.service_name())
 
 @when('dns.available')
+@when_not('dns.configured')
 def dns_changed(dns):
+    hookenv.log("dns_changed: dns state = {}".format(helpers.is_state('dns.available')))
     if not dns:
         return
+    dns.configure(config.get('zone'), hookenv.service_name())
+    reactive.set_state('dns.configured')
     for service in dns.services():
         record = "AUTO GENERATED\n"
         record += "nameserver\t{}\n".format(service['ip'])
-        host.write_file("/etc/resolvconf/resolv.conf.d/head", bytes(record, 'UTF-8'))
+        #host.write_file("/etc/resolvconf/resolv.conf.d/head", bytes(record, 'UTF-8'))
         check_call(["resolvconf", "-u"])
         break
 
 @when('dns.removing')
 def dns_disconnected(dns):
     reactive.remove_state('dns.removing')
+    reactive.remove_state('dns.configured')
     dns.configure(config.get('zone'), hookenv.service_name())
     record = "AUTO GENERATED\n"
     host.write_file("/etc/resolvconf/resolv.conf.d/head", bytes(record, 'UTF-8'))
+    check_call(["resolvconf", "-u"])
 
 @hook('loadbalancer-relation-changed')
 def loadbalancer_changed():
